@@ -44,7 +44,8 @@
   (interactive)
   (switch-to-buffer "minesweeper")
   (minesweeper-mode)
-  (minesweeper-init))
+  (minesweeper-init)
+  (minesweeper-goto-start-position))
 
 (require 'cl-lib)
 
@@ -59,6 +60,12 @@
 
 (defvar *minesweeper-bombs* 10
   "The number of bombs on the board.")
+
+(defvar *minesweeper-current-row* 0
+  "Current row position")
+
+(defvar *minesweeper-current-column* 0
+  "Current column position")
 
 ;; Cell values
 (defconst *minesweeper-default-symbol* 0)
@@ -175,21 +182,49 @@ and upper bound LIMIT"
       (insert "|\n"))
     (minesweeper-insert-separator)))
 
-(defun minesweeper-up ()
+(defun minesweeper-goto-position ()
+  "Move the cursor to the cell at (ROW, COL)"
   (interactive)
-  (message "minesweeper-up"))
+  (let* ((row-length (+ (* 4 *minesweeper-columns*) 2))
+         (origin (+ row-length 3)))
+    (goto-char (+ origin
+                  (* *minesweeper-current-row* 2 row-length)
+                  (* *minesweeper-current-column* 4)))))
+
+(defun minesweeper-goto-start-position ()
+  "Move the cursor to the first cell"
+  (interactive)
+  (setq *minesweeper-current-row* 0)
+  (setq *minesweeper-current-column* 0)
+  (minesweeper-goto-position))
+
+(defun minesweeper-up ()
+  "Move the cursor up one row."
+  (interactive)
+  (setq *minesweeper-current-row*
+        (mod (1- *minesweeper-current-row*) *minesweeper-rows*))
+  (minesweeper-goto-position))
 
 (defun minesweeper-down ()
+  "Move the cursor down one row."
   (interactive)
-  (message "minesweeper-down"))
+  (setq *minesweeper-current-row*
+        (mod (1+ *minesweeper-current-row*) *minesweeper-rows*))
+  (minesweeper-goto-position))
 
 (defun minesweeper-left ()
+  "Move the cursor left one column."
   (interactive)
-  (message "minesweeper-left"))
+  (setq *minesweeper-current-column*
+        (mod (1- *minesweeper-current-column*) *minesweeper-columns*))
+  (minesweeper-goto-position))
 
 (defun minesweeper-right ()
+  "Move the cursor right one column."
   (interactive)
-  (message "minesweeper-right"))
+  (setq *minesweeper-current-column*
+        (mod (1+ *minesweeper-current-column*) *minesweeper-columns*))
+  (minesweeper-goto-position))
 
 (defun minesweeper-toggle ()
   (interactive)
