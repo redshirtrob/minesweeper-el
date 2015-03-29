@@ -32,12 +32,15 @@
 ;;; Code:
 
 (define-derived-mode minesweeper-mode special-mode "minesweeper-mode"
-  (define-key minesweeper-mode-map (kbd "n") 'minesweeper-new-game)
-  (define-key minesweeper-mode-map (kbd "k") 'minesweeper-up)
-  (define-key minesweeper-mode-map (kbd "j") 'minesweeper-down)
-  (define-key minesweeper-mode-map (kbd "h") 'minesweeper-left)
-  (define-key minesweeper-mode-map (kbd "l") 'minesweeper-right)
-  (define-key minesweeper-mode-map (kbd "SPC") 'minesweeper-reveal))
+  (define-key minesweeper-mode-map (kbd "C-x C-n") 'minesweeper-new-game)
+  (define-key minesweeper-mode-map (kbd "C-n") 'minesweeper-down)
+  (define-key minesweeper-mode-map (kbd "C-p") 'minesweeper-up)
+  (define-key minesweeper-mode-map (kbd "C-f") 'minesweeper-right)
+  (define-key minesweeper-mode-map (kbd "C-b") 'minesweeper-left)
+  (define-key minesweeper-mode-map (kbd "C-a") 'minesweeper-row-first)
+  (define-key minesweeper-mode-map (kbd "C-e") 'minesweeper-row-last)
+  (define-key minesweeper-mode-map (kbd "SPC") 'minesweeper-toggle-mark)
+  (define-key minesweeper-mode-map (kbd "RET") 'minesweeper-reveal))
 
 ;;;##a#autoload
 (defun minesweeper ()
@@ -163,6 +166,19 @@ and upper bound LIMIT"
         (+ (* row *minesweeper-columns*) col)
         val))
 
+(defun minesweeper-set-cell-state-flagged (row col)
+  (minesweeper-set-cell-state row col *minesweeper-cell-flagged-symbol*))
+
+(defun minesweeper-set-cell-state-question (row col)
+  (minesweeper-set-cell-state row col *minesweeper-cell-question-symbol*))
+
+(defun minesweeper-set-cell-state-hidden (row col)
+  (minesweeper-set-cell-state row col *minesweeper-cell-hidden-symbol*))
+
+(defun minesweeper-is-cell-flagged (row col)
+  (let ((cell-state (minesweeper-get-cell-state row col)))
+    (equal *minesweeper-cell-flagged-symbol* cell-state)))
+
 (defun minesweeper-reveal-current-cell ()
   (minesweeper-set-cell-state
    *minesweeper-current-row*
@@ -206,61 +222,88 @@ and upper bound LIMIT"
       (insert "|\n"))
     (minesweeper-insert-separator)))
 
-(defun minesweeper-goto-position ()
+(defun minesweeper-set-cursor-position (row col)
   "Move the cursor to the cell at (ROW, COL)"
   (interactive)
   (let* ((row-length (+ (* 4 *minesweeper-columns*) 2))
          (origin (+ row-length 3)))
+    (setq *minesweeper-current-row* row)
+    (setq *minesweeper-current-column* col)
     (goto-char (+ origin
-                  (* *minesweeper-current-row* 2 row-length)
-                  (* *minesweeper-current-column* 4)))))
+                  (* row 2 row-length)
+                  (* col 4)))))
 
 (defun minesweeper-goto-start-position ()
   "Move the cursor to the first cell"
   (interactive)
-  (setq *minesweeper-current-row* 0)
-  (setq *minesweeper-current-column* 0)
-  (minesweeper-goto-position))
+  (minesweeper-set-cursor-position 0 0))
 
 (defun minesweeper-up ()
   "Move the cursor up one row."
   (interactive)
-  (setq *minesweeper-current-row*
-        (mod (1- *minesweeper-current-row*) *minesweeper-rows*))
-  (minesweeper-goto-position))
+  (minesweeper-set-cursor-position
+   (mod (1- *minesweeper-current-row*) *minesweeper-rows*)
+   *minesweeper-current-column*))
 
 (defun minesweeper-down ()
   "Move the cursor down one row."
   (interactive)
-  (setq *minesweeper-current-row*
-        (mod (1+ *minesweeper-current-row*) *minesweeper-rows*))
-  (minesweeper-goto-position))
+  (minesweeper-set-cursor-position
+   (mod (1+ *minesweeper-current-row*) *minesweeper-rows*)
+   *minesweeper-current-column*))
 
 (defun minesweeper-left ()
   "Move the cursor left one column."
   (interactive)
-  (setq *minesweeper-current-column*
-        (mod (1- *minesweeper-current-column*) *minesweeper-columns*))
-  (minesweeper-goto-position))
+  (minesweeper-set-cursor-position
+   *minesweeper-current-row*
+   (mod (1- *minesweeper-current-column*) *minesweeper-columns*)))
 
 (defun minesweeper-right ()
   "Move the cursor right one column."
   (interactive)
-  (setq *minesweeper-current-column*
-        (mod (1+ *minesweeper-current-column*) *minesweeper-columns*))
-  (minesweeper-goto-position))
+  (minesweeper-set-cursor-position
+   *minesweeper-current-row*
+   (mod (1+ *minesweeper-current-column*) *minesweeper-columns*)))
+
+(defun minesweeper-row-first ()
+  "Move the cursor to the first column in the current row"
+  (interactive)
+  (minesweeper-set-cursor-position *minesweeper-current-row* 0))
+
+(defun minesweeper-row-last ()
+  "Move the cursor to the last column in the current row"
+  (interactive)
+  (minesweeper-set-cursor-position *minesweeper-current-row* (1- *minesweeper-columns*)))
+
+(defun minesweeper-toggle-mark ()
+  (interactive)
+  (message "minesweeper-toggle-mark")
+  (let* ((row *minesweeper-current-row*)
+         (col *minesweeper-current-column*)
+         (cell-state (minesweeper-get-cell-state row col)))
+    (cond
+     ((equal cell-state *minesweeper-cell-hidden-symbol*)
+      (minesweeper-set-cell-state-flagged row col))
+     ((equal cell-state *minesweeper-cell-flagged-symbol*)
+      (minesweeper-set-cell-state-question row col))
+     ((equal cell-state *minesweeper-cell-question-symbol*)
+      (minesweeper-set-cell-state-hidden row col))))
+  (minesweeper-print-board)
+  (minesweeper-set-cursor-position *minesweeper-current-row* *minesweeper-current-column*))
 
 (defun minesweeper-reveal ()
   (interactive)
   (message "minesweeper-reveal")
-  (minesweeper-reveal-current-cell)
-  (cond
-   ((minesweeper-is-space *minesweeper-current-row* *minesweeper-current-column*)
-    (minesweeper-reveal-connected-spaces))
-   ((minesweeper-is-bomb *minesweeper-current-row* *minesweeper-current-column*)
-    (setq *minesweeper-game-over* t)))
-  (minesweeper-print-board)
-  (minesweeper-goto-position))
+  (when (not (minesweeper-is-cell-flagged *minesweeper-current-row* *minesweeper-current-column*))
+    (minesweeper-reveal-current-cell)
+    (cond
+     ((minesweeper-is-space *minesweeper-current-row* *minesweeper-current-column*)
+      (minesweeper-reveal-connected-spaces))
+     ((minesweeper-is-bomb *minesweeper-current-row* *minesweeper-current-column*)
+      (setq *minesweeper-game-over* t)))
+    (minesweeper-print-board)
+    (minesweeper-set-cursor-position *minesweeper-current-row* *minesweeper-current-column*)))
 
 (provide 'minesweeper)
 ;;; minesweeper-el ends here
