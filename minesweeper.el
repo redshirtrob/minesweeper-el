@@ -81,7 +81,7 @@
 (defun minesweeper-make-board ()
     "Generate a random board"
   (setq *minesweeper-board* (make-vector (minesweeper-board-size) *minesweeper-default-symbol*))
-  (setq *minesweeper-board-state* (make-vector (minesweeper-board-size) *minesweeper-default-symbol*))
+  (setq *minesweeper-board-state* (make-vector (minesweeper-board-size) *minesweeper-cell-hidden-symbol*))
   (setq bombs-placed 0)
   (while (< bombs-placed *minesweeper-bombs*)
     (let ((bomb-column (random *minesweeper-columns*))
@@ -134,8 +134,29 @@ and upper bound LIMIT"
 (defun minesweeper-set-bomb (row col)
   (minesweeper-set-symbol row col *minesweeper-bomb-symbol*))
 
+(defun minesweeper-get-cell-state (row col)
+  (elt *minesweeper-board-state*
+       (+ (* row *minesweeper-columns*) col)))
+
+(defun minesweeper-set-cell-state (row col val)
+  (aset *minesweeper-board-state*
+        (+ (* row *minesweeper-columns*) col)
+        val))
+
 (defun minesweeper-get-display-value (row col)
-  (number-to-string (minesweeper-get-symbol row col)))
+  "Get the board display value for the cell at (ROW, COL)"
+  (let ((cell-state (minesweeper-get-cell-state row col)))
+    (cond
+     ((equal cell-state *minesweeper-cell-hidden-symbol*)
+      " ")
+     ((equal cell-state *minesweeper-cell-revealed-symbol*)
+      (if (minesweeper-is-bomb row col)
+          "*"
+        (number-to-string (minesweeper-get-symbol row col))))
+     ((equal cell-state *minesweeper-cell-question-symbol*)
+      "?")
+     ((equal cell-state *minesweeper-cell-flagged-symbol*)
+      "F"))))
 
 (defun minesweeper-insert-separator ()
   (dotimes (col *minesweeper-columns*)
