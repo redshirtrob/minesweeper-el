@@ -86,8 +86,8 @@
   (while (< bombs-placed *minesweeper-bombs*)
     (let ((bomb-column (random *minesweeper-columns*))
           (bomb-row (random *minesweeper-rows*)))
-      (when (/= *minesweeper-bomb-symbol* (minesweeper-get-symbol bomb-row bomb-column))
-        (progn (minesweeper-set-symbol bomb-row bomb-column *minesweeper-bomb-symbol*)
+      (when (not (minesweeper-is-bomb bomb-row bomb-column))
+        (progn (minesweeper-set-bomb bomb-row bomb-column)
                (setq bombs-placed (1+ bombs-placed))))))
   (dotimes (col *minesweeper-columns*)
     (dotimes (row *minesweeper-rows*)
@@ -114,12 +114,11 @@ and upper bound LIMIT"
 
 (defun minesweeper-count-adjacent-bombs (row col)
   "Count the number of bombs adjacent to the cell at (ROW, COL)"
-  (message "Neighbors: %s" (minesweeper-get-neighbors row col))
-  (length (-filter
-           (lambda (x)
-             (message "Coords: (%s, %s)" (car x) (cadr x))
-             (= *minesweeper-bomb-symbol* (minesweeper-get-symbol (car x) (cadr x))))
-           (minesweeper-get-neighbors row col))))
+  (length (-filter (lambda (x) (minesweeper-is-bomb (car x) (cadr x)))
+                   (minesweeper-get-neighbors row col))))
+
+(defun minesweeper-is-bomb (row col)
+  (= *minesweeper-bomb-symbol* (minesweeper-get-symbol row col)))
 
 (defun minesweeper-get-symbol (row col)
   "Get the symbol at (ROW, COL)"
@@ -131,6 +130,9 @@ and upper bound LIMIT"
   (aset *minesweeper-board*
        (+ (* row *minesweeper-columns*) col)
        val))
+
+(defun minesweeper-set-bomb (row col)
+  (minesweeper-set-symbol row col *minesweeper-bomb-symbol*))
 
 (defun minesweeper-get-display-value (row col)
   (number-to-string (minesweeper-get-symbol row col)))
