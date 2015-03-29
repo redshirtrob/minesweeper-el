@@ -32,11 +32,12 @@
 ;;; Code:
 
 (define-derived-mode minesweeper-mode special-mode "minesweeper-mode"
+  (define-key minesweeper-mode-map (kbd "n") 'minesweeper-new-game)
   (define-key minesweeper-mode-map (kbd "k") 'minesweeper-up)
   (define-key minesweeper-mode-map (kbd "j") 'minesweeper-down)
   (define-key minesweeper-mode-map (kbd "h") 'minesweeper-left)
   (define-key minesweeper-mode-map (kbd "l") 'minesweeper-right)
-  (define-key minesweeper-mode-map (kbd "SPC") 'minesweeper-toggle))
+  (define-key minesweeper-mode-map (kbd "SPC") 'minesweeper-reveal))
 
 ;;;##a#autoload
 (defun minesweeper ()
@@ -44,8 +45,7 @@
   (interactive)
   (switch-to-buffer "minesweeper")
   (minesweeper-mode)
-  (minesweeper-init)
-  (minesweeper-goto-start-position))
+  (minesweeper-new-game))
 
 (require 'cl-lib)
 
@@ -67,6 +67,9 @@
 (defvar *minesweeper-current-column* 0
   "Current column position")
 
+(defvar *minesweeper-game-over* t
+  "Whether or not the game is over")
+
 ;; Cell values
 (defconst *minesweeper-default-symbol* 0)
 (defconst *minesweeper-bomb-symbol* 9)
@@ -78,9 +81,16 @@
 (defconst *minesweeper-cell-flagged-symbol* "F")
 
 (defun minesweeper-init ()
-  (message "minesweeper-init")
+  (setq *minesweeper-game-over* nil)
+  (setq *minesweeper-current-row* 0)
+  (setq *minesweeper-current-column* 0)
   (minesweeper-make-board)
   (minesweeper-print-board))
+
+(defun minesweeper-new-game ()
+  (interactive)
+  (minesweeper-init)
+  (minesweeper-goto-start-position))
 
 (defun minesweeper-board-size ()
     (* *minesweeper-columns* *minesweeper-rows*))
@@ -127,6 +137,9 @@ and upper bound LIMIT"
 (defun minesweeper-is-bomb (row col)
   (= *minesweeper-bomb-symbol* (minesweeper-get-symbol row col)))
 
+(defun minesweeper-is-space (row col)
+  (= *minesweeper-default-symbol* (minesweeper-get-symbol row col)))
+
 (defun minesweeper-get-symbol (row col)
   "Get the symbol at (ROW, COL)"
   (elt *minesweeper-board*
@@ -150,20 +163,31 @@ and upper bound LIMIT"
         (+ (* row *minesweeper-columns*) col)
         val))
 
+(defun minesweeper-reveal-current-cell ()
+  (minesweeper-set-cell-state
+   *minesweeper-current-row*
+   *minesweeper-current-column*
+   *minesweeper-cell-revealed-symbol*))
+
+(defun minesweeper-reveal-connected-spaces ()
+  "Reveal all cells adjacent to the current cell")
+
 (defun minesweeper-get-display-value (row col)
   "Get the board display value for the cell at (ROW, COL)"
-  (let ((cell-state (minesweeper-get-cell-state row col)))
-    (cond
-     ((equal cell-state *minesweeper-cell-hidden-symbol*)
-      " ")
-     ((equal cell-state *minesweeper-cell-revealed-symbol*)
+  (if *minesweeper-game-over*
       (if (minesweeper-is-bomb row col)
           "*"
-        (number-to-string (minesweeper-get-symbol row col))))
-     ((equal cell-state *minesweeper-cell-question-symbol*)
-      "?")
-     ((equal cell-state *minesweeper-cell-flagged-symbol*)
-      "F"))))
+        (number-to-string (minesweeper-get-symbol row col)))
+    (let ((cell-state (minesweeper-get-cell-state row col)))
+       (cond
+        ((equal cell-state *minesweeper-cell-hidden-symbol*)
+         " ")
+        ((equal cell-state *minesweeper-cell-revealed-symbol*)
+         (number-to-string (minesweeper-get-symbol row col)))
+        ((equal cell-state *minesweeper-cell-question-symbol*)
+         "?")
+        ((equal cell-state *minesweeper-cell-flagged-symbol*)
+         "F")))))
 
 (defun minesweeper-insert-separator ()
   (dotimes (col *minesweeper-columns*)
@@ -226,9 +250,17 @@ and upper bound LIMIT"
         (mod (1+ *minesweeper-current-column*) *minesweeper-columns*))
   (minesweeper-goto-position))
 
-(defun minesweeper-toggle ()
+(defun minesweeper-reveal ()
   (interactive)
-  (message "minesweeper-toggle"))
+  (message "minesweeper-reveal")
+  (minesweeper-reveal-current-cell)
+  (cond
+   ((minesweeper-is-space *minesweeper-current-row* *minesweeper-current-column*)
+    (minesweeper-reveal-connected-spaces))
+   ((minesweeper-is-bomb *minesweeper-current-row* *minesweeper-current-column*)
+    (setq *minesweeper-game-over* t)))
+  (minesweeper-print-board)
+  (minesweeper-goto-position))
 
 (provide 'minesweeper)
 ;;; minesweeper-el ends here
