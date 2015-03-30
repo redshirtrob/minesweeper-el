@@ -143,6 +143,10 @@ and upper bound LIMIT"
 (defun minesweeper-is-space (row col)
   (= *minesweeper-default-symbol* (minesweeper-get-symbol row col)))
 
+(defun minesweeper-is-number (row col)
+  (and (not (minesweeper-is-bomb row col))
+       (not (minesweeper-is-space row col))))
+
 (defun minesweeper-get-symbol (row col)
   "Get the symbol at (ROW, COL)"
   (elt *minesweeper-board*
@@ -175,18 +179,47 @@ and upper bound LIMIT"
 (defun minesweeper-set-cell-state-hidden (row col)
   (minesweeper-set-cell-state row col *minesweeper-cell-hidden-symbol*))
 
+(defun minesweeper-set-cell-state-revealed (row col)
+  (minesweeper-set-cell-state row col *minesweeper-cell-revealed-symbol*))
+
 (defun minesweeper-is-cell-flagged (row col)
   (let ((cell-state (minesweeper-get-cell-state row col)))
     (equal *minesweeper-cell-flagged-symbol* cell-state)))
 
 (defun minesweeper-reveal-current-cell ()
-  (minesweeper-set-cell-state
+  (minesweeper-set-cell-state-revealed
    *minesweeper-current-row*
-   *minesweeper-current-column*
-   *minesweeper-cell-revealed-symbol*))
+   *minesweeper-current-column*))
 
-(defun minesweeper-reveal-connected-spaces ()
-  "Reveal all cells adjacent to the current cell")
+(defun minesweeper-reveal-connected-region ()
+  "Reveal all cells connected to the current cell.
+A cell is connected to another cell if there is a path
+of spaces from one cell to another."
+  (message "minesweeper-reveal-connected-region")
+  (let* ((start-cell (list *minesweeper-current-row* *minesweeper-current-column*))
+        (cells-to-examine (cons start-cell nil))
+        (cells-already-examined))
+    (while cells-to-examine
+      (let* ((current-cell (car cells-to-examine))
+             (neighbors (minesweeper-get-neighbors (car current-cell) (cadr current-cell))))
+        ;; Examine each cell in the neighbors list:
+        ;;
+        ;; If cell is a space, push it onto the list of cells
+        ;; to examine (unless it's already on the list or has
+        ;; already been examined).
+        ;;
+        ;; If cell is a number, mark it as revealed and
+        ;; put it on the list of cells aready examined
+        (dolist (neighbor neighbors)
+          (when (not (member neighbor cells-already-examined))
+            (cond
+             ((minesweeper-is-space (car neighbor) (cadr neighbor))
+              (setq cells-to-examine (cons neighbor cells-to-examine)))
+             ((minesweeper-is-number (car neighbor) (cadr neighbor))
+              (minesweeper-set-cell-state-revealed (car neighbor) (cadr neighbor))))))
+        (minesweeper-set-cell-state-revealed (car current-cell) (cadr current-cell))
+        (setq cells-already-examined (cons current-cell cells-already-examined))
+        (setq cells-to-examine (remove current-cell cells-to-examine))))))
 
 (defun minesweeper-get-display-value (row col)
   "Get the board display value for the cell at (ROW, COL)"
@@ -277,6 +310,9 @@ and upper bound LIMIT"
   (minesweeper-set-cursor-position *minesweeper-current-row* (1- *minesweeper-columns*)))
 
 (defun minesweeper-toggle-mark ()
+  "Toggle the visual mark the current cell.
+Do nothing if the current cell is revealed.
+Clear -> Flagged -> Questioned -> Clear."
   (interactive)
   (message "minesweeper-toggle-mark")
   (let* ((row *minesweeper-current-row*)
@@ -293,13 +329,15 @@ and upper bound LIMIT"
   (minesweeper-set-cursor-position *minesweeper-current-row* *minesweeper-current-column*))
 
 (defun minesweeper-reveal ()
+  "Reveal the board value at the current cell.
+Does nothing when the cell is flagged."
   (interactive)
   (message "minesweeper-reveal")
   (when (not (minesweeper-is-cell-flagged *minesweeper-current-row* *minesweeper-current-column*))
     (minesweeper-reveal-current-cell)
     (cond
      ((minesweeper-is-space *minesweeper-current-row* *minesweeper-current-column*)
-      (minesweeper-reveal-connected-spaces))
+      (minesweeper-reveal-connected-region))
      ((minesweeper-is-bomb *minesweeper-current-row* *minesweeper-current-column*)
       (setq *minesweeper-game-over* t)))
     (minesweeper-print-board)
