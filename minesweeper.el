@@ -70,9 +70,6 @@
 (defvar *minesweeper-current-column* 0
   "Current column position")
 
-(defvar *minesweeper-game-over* t
-  "Whether or not the game is over")
-
 ;; Cell values
 (defconst *minesweeper-default-symbol* 0)
 (defconst *minesweeper-bomb-symbol* 9)
@@ -83,8 +80,16 @@
 (defconst *minesweeper-cell-question-symbol* "?")
 (defconst *minesweeper-cell-flagged-symbol* "F")
 
+;; Game State
+(defconst *minesweeper-game-active* 1)
+(defconst *minesweeper-game-over-win* 2)
+(defconst *minesweeper-game-over-lose* 3)
+
+(defvar *minesweeper-game-state* *minesweeper-game-active*
+  "Current game state.")
+
 (defun minesweeper-init ()
-  (setq *minesweeper-game-over* nil)
+  (setq *minesweeper-game-state* *minesweeper-game-active*)
   (setq *minesweeper-current-row* 0)
   (setq *minesweeper-current-column* 0)
   (minesweeper-make-board)
@@ -137,6 +142,12 @@ and upper bound LIMIT"
   (length (-filter (lambda (x) (minesweeper-is-bomb (car x) (cadr x)))
                    (minesweeper-get-neighbors row col))))
 
+(defun minesweeper-bomb-cells ()
+  "List of cells with bombs."
+  (cl-remove-if-not
+              (lambda (x) (equal x *minesweeper-bomb-symbol*))
+              *minesweeper-board*))
+
 (defun minesweeper-is-bomb (row col)
   (= *minesweeper-bomb-symbol* (minesweeper-get-symbol row col)))
 
@@ -186,6 +197,42 @@ and upper bound LIMIT"
   (let ((cell-state (minesweeper-get-cell-state row col)))
     (equal *minesweeper-cell-flagged-symbol* cell-state)))
 
+(defun minesweeper-revealed-bomb-cell-count ()
+  "The number of bomb cells revealed.  Should only ever be 1."
+  (setq index 0)
+  (setq count 0)
+  (while (< index (minesweeper-board-size))
+    (if (and (= (elt *minesweeper-board* index) *minesweeper-bomb-symbol*)
+             (equal (elt *minesweeper-board-state* index) *minesweeper-cell-revealed-symbol*))
+        (setq count (1+ count)))
+    (setq index (1+ index)))
+  count)
+
+(defun minesweeper-update-game-state ()
+  "Update the game state for win/loss conditions."
+  (cond ((and (equal (minesweeper-flagged-cells) (minesweeper-bomb-cells))
+              (= 0 (minesweeper-number-of-hidden-cells)))
+         (setq *minesweeper-game-state* *minesweeper-game-over-win*))
+        ((/= 0 (minesweeper-revealed-bomb-cell-count))
+         (setq *minesweeper-game-state* *minesweeper-game-over-lose*))))
+
+(defun minesweeper-flagged-cells ()
+  "List of flagged cells."
+  (cl-remove-if-not
+   (lambda (x) (equal x *minesweeper-cell-flagged-symbol*))
+   *minesweeper-board-state*))
+
+(defun minesweeper-flags-remaining ()
+  "Number of flags remaining to be placed."
+  (- *minesweeper-bombs* (length (minesweeper-flagged-cells))))
+
+(defun minesweeper-number-of-hidden-cells ()
+  "Number of cells still hidden or questioned."
+  (cl-remove-if-not
+   (lambda (x)
+     (or (equal x *minesweeper-cell-hidden-symbol*)
+         (equal x *minesweeper-cell-question-symbol*)))))
+
 (defun minesweeper-reveal-current-cell ()
   (minesweeper-set-cell-state-revealed
    *minesweeper-current-row*
@@ -223,7 +270,7 @@ of spaces from one cell to another."
 
 (defun minesweeper-get-display-value (row col)
   "Get the board display value for the cell at (ROW, COL)"
-  (if *minesweeper-game-over*
+  (if (= *minesweeper-game-state* *minesweeper-game-over-lose*)
       (if (minesweeper-is-bomb row col)
           "*"
         (number-to-string (minesweeper-get-symbol row col)))
@@ -253,7 +300,20 @@ of spaces from one cell to another."
         (insert (minesweeper-get-display-value row col))
         (insert " "))
       (insert "|\n"))
-    (minesweeper-insert-separator)))
+    (minesweeper-insert-separator)
+
+    ;; Game Status
+    (cond
+     ((= *minesweeper-game-state* *minesweeper-game-over-win*)
+      (insert "\n\tYou Win!\n"))
+     ((= *minesweeper-game-state* *minesweeper-game-over-lose*)
+      (insert "\n\tYou Lose...\n"))
+     (t
+      (insert "\n\n")))
+
+    (insert "\tFlags\n")
+    (insert (format "\t%3s" (minesweeper-flags-remaining)))
+    (insert "\n")))
 
 (defun minesweeper-set-cursor-position (row col)
   "Move the cursor to the cell at (ROW, COL)"
@@ -325,6 +385,7 @@ Clear -> Flagged -> Questioned -> Clear."
       (minesweeper-set-cell-state-question row col))
      ((equal cell-state *minesweeper-cell-question-symbol*)
       (minesweeper-set-cell-state-hidden row col))))
+  (minesweeper-update-game-state)
   (minesweeper-print-board)
   (minesweeper-set-cursor-position *minesweeper-current-row* *minesweeper-current-column*))
 
@@ -335,11 +396,9 @@ Does nothing when the cell is flagged."
   (message "minesweeper-reveal")
   (when (not (minesweeper-is-cell-flagged *minesweeper-current-row* *minesweeper-current-column*))
     (minesweeper-reveal-current-cell)
-    (cond
-     ((minesweeper-is-space *minesweeper-current-row* *minesweeper-current-column*)
+    (when (minesweeper-is-space *minesweeper-current-row* *minesweeper-current-column*)
       (minesweeper-reveal-connected-region))
-     ((minesweeper-is-bomb *minesweeper-current-row* *minesweeper-current-column*)
-      (setq *minesweeper-game-over* t)))
+    (minesweeper-update-game-state)
     (minesweeper-print-board)
     (minesweeper-set-cursor-position *minesweeper-current-row* *minesweeper-current-column*)))
 
