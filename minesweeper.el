@@ -31,6 +31,86 @@
 
 ;;; Code:
 
+(defgroup minesweeper-mode nil
+  "Minesweeper settings."
+  :group 'convenience
+  :version "24.2")
+
+;;; Faces
+
+(defgroup minsweeper-mode-faces nil
+  "Customize Minesweeper"
+  :prefix "minesweeper-mode"
+  :group 'faces
+  :group 'minesweeper-mode)
+
+(defface minesweeper-mode-face-bomb
+  '((((class color) (min-colors 88) (background light))
+    :foreground "black"))
+  "Face for bombs."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-flags
+  '((((class color) (min-colors 88) (background light))
+    :foreground "red"))
+  "Face for flagged cells."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-1
+  '((((class color) (min-colors 88) (background light))
+    :foreground "blue"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-2
+  '((((class color) (min-colors 88) (background light))
+    :foreground "green"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-3
+  '((((class color) (min-colors 88) (background light))
+    :foreground "brightred"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-4
+  '((((class color) (min-colors 88) (background light))
+    :foreground "brightblue"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-5
+  '((((class color) (min-colors 88) (background light))
+    :foreground "red"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-6
+  '((((class color) (min-colors 88) (background light))
+    :foreground "cyan"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-7
+  '((((class color) (min-colors 88) (background light))
+    :foreground "black"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-number-8
+  '((((class color) (min-colors 88) (background light))
+    :foreground "brightblack"))
+  "Face for numbers."
+  :group 'minesweeper-mode-faces)
+
+(defface minesweeper-mode-face-space
+  '((((class color) (min-colors 88) (background light))
+    :foreground "black"))
+  "Face for hidden cells."
+  :group 'minesweeper-mode-faces)
+
+
 (define-derived-mode minesweeper-mode special-mode "minesweeper-mode"
   (define-key minesweeper-mode-map (kbd "C-x C-n") 'minesweeper-new-game)
   (define-key minesweeper-mode-map (kbd "C-n") 'minesweeper-down)
@@ -39,6 +119,7 @@
   (define-key minesweeper-mode-map (kbd "C-b") 'minesweeper-left)
   (define-key minesweeper-mode-map (kbd "C-a") 'minesweeper-row-first)
   (define-key minesweeper-mode-map (kbd "C-e") 'minesweeper-row-last)
+  (define-key minesweeper-mode-map (kbd "n") 'minesweeper-new-game)
   (define-key minesweeper-mode-map (kbd "SPC") 'minesweeper-toggle-mark)
   (define-key minesweeper-mode-map (kbd "RET") 'minesweeper-reveal))
 
@@ -285,6 +366,43 @@ of spaces from one cell to another."
         ((equal cell-state *minesweeper-cell-flagged-symbol*)
          "F")))))
 
+(defun minesweeper-get-display-face (row col)
+  "Get the board display face for the cell at (ROW, COL)"
+  (if (= *minesweeper-game-state* *minesweeper-game-over-lose*)
+      (if (minesweeper-is-bomb row col)
+          'minesweeper-mode-face-bomb
+         (let ((number (minesweeper-get-symbol row col)))
+           (cond
+            ((equal number '1) 'minesweeper-mode-face-number-1)
+            ((equal number '2) 'minesweeper-mode-face-number-2)
+            ((equal number '3) 'minesweeper-mode-face-number-3)
+            ((equal number '4) 'minesweeper-mode-face-number-4)
+            ((equal number '5) 'minesweeper-mode-face-number-5)
+            ((equal number '6) 'minesweeper-mode-face-number-6)
+            ((equal number '7) 'minesweeper-mode-face-number-7)
+            ((equal number '8) 'minesweeper-mode-face-number-8)
+            )))
+    (let ((cell-state (minesweeper-get-cell-state row col)))
+       (cond
+        ((equal cell-state *minesweeper-cell-hidden-symbol*)
+         'minesweeper-mode-face-space)
+        ((equal cell-state *minesweeper-cell-revealed-symbol*)
+         (let ((number (minesweeper-get-symbol row col)))
+           (cond
+            ((equal number '1) 'minesweeper-mode-face-number-1)
+            ((equal number '2) 'minesweeper-mode-face-number-2)
+            ((equal number '3) 'minesweeper-mode-face-number-3)
+            ((equal number '4) 'minesweeper-mode-face-number-4)
+            ((equal number '5) 'minesweeper-mode-face-number-5)
+            ((equal number '6) 'minesweeper-mode-face-number-6)
+            ((equal number '7) 'minesweeper-mode-face-number-7)
+            ((equal number '8) 'minesweeper-mode-face-number-8)
+            )))
+        ((equal cell-state *minesweeper-cell-question-symbol*)
+         'minesweeper-mode-face-flags)
+        ((equal cell-state *minesweeper-cell-flagged-symbol*)
+         'minesweeper-mode-face-flags)))))
+
 (defun minesweeper-insert-separator ()
   (dotimes (col *minesweeper-columns*)
     (insert "+---"))
@@ -297,7 +415,10 @@ of spaces from one cell to another."
       (minesweeper-insert-separator)
       (dotimes (col *minesweeper-columns*) ;; values
         (insert "| ")
-        (insert (minesweeper-get-display-value row col))
+        (let ((display-value (minesweeper-get-display-value row col))
+              (display-face (minesweeper-get-display-face row col)))
+          (put-text-property 0 1 'font-lock-face display-face display-value)
+          (insert display-value))
         (insert " "))
       (insert "|\n"))
     (minesweeper-insert-separator)
