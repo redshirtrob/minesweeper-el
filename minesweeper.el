@@ -151,6 +151,9 @@
 (defvar *minesweeper-current-column* 0
   "Current column position")
 
+(defun minesweeper-index-to-coords (index)
+  (list (/ index *minesweeper-rows*) (% index *minesweeper-columns*)))
+
 ;; Cell values
 (defconst *minesweeper-default-symbol* 0)
 (defconst *minesweeper-bomb-symbol* 9)
@@ -225,9 +228,15 @@ and upper bound LIMIT"
 
 (defun minesweeper-bomb-cells ()
   "List of cells with bombs."
-  (cl-remove-if-not
-              (lambda (x) (equal x *minesweeper-bomb-symbol*))
-              *minesweeper-board*))
+  (let ((coords (mapcar 'minesweeper-index-to-coords
+                        (number-sequence 0 (1- (minesweeper-board-size))))))
+    (cl-remove-if-not
+     (lambda (x) (equal (minesweeper-get-symbol (car x) (cadr x))
+                        *minesweeper-bomb-symbol*))
+     coords)))
+
+(defun minesweeper-index-to-coords (index)
+  (list (/ index *minesweeper-rows*) (% index *minesweeper-columns*)))
 
 (defun minesweeper-is-bomb (row col)
   (= *minesweeper-bomb-symbol* (minesweeper-get-symbol row col)))
@@ -299,9 +308,12 @@ and upper bound LIMIT"
 
 (defun minesweeper-flagged-cells ()
   "List of flagged cells."
-  (cl-remove-if-not
-   (lambda (x) (equal x *minesweeper-cell-flagged-symbol*))
-   *minesweeper-board-state*))
+  (let ((coords (mapcar 'minesweeper-index-to-coords
+                        (number-sequence 0 (1- (minesweeper-board-size))))))
+    (cl-remove-if-not
+     (lambda (x) (equal (minesweeper-get-cell-state (car x) (cadr x))
+                        *minesweeper-cell-flagged-symbol*))
+     coords)))
 
 (defun minesweeper-flags-remaining ()
   "Number of flags remaining to be placed."
@@ -309,10 +321,12 @@ and upper bound LIMIT"
 
 (defun minesweeper-number-of-hidden-cells ()
   "Number of cells still hidden or questioned."
-  (cl-remove-if-not
-   (lambda (x)
-     (or (equal x *minesweeper-cell-hidden-symbol*)
-         (equal x *minesweeper-cell-question-symbol*)))))
+  (length
+   (cl-remove-if-not
+    (lambda (x)
+      (or (equal x *minesweeper-cell-hidden-symbol*)
+          (equal x *minesweeper-cell-question-symbol*)))
+    *minesweeper-board-state*)))
 
 (defun minesweeper-reveal-current-cell ()
   (minesweeper-set-cell-state-revealed
