@@ -120,6 +120,7 @@
   (define-key minesweeper-mode-map (kbd "C-a") 'minesweeper-row-first)
   (define-key minesweeper-mode-map (kbd "C-e") 'minesweeper-row-last)
   (define-key minesweeper-mode-map (kbd "n") 'minesweeper-new-game)
+  (define-key minesweeper-mode-map (kbd "r") 'minesweeper-restart)
   (define-key minesweeper-mode-map (kbd "SPC") 'minesweeper-toggle-mark)
   (define-key minesweeper-mode-map (kbd "RET") 'minesweeper-reveal))
 
@@ -182,6 +183,13 @@
 (defun minesweeper-new-game ()
   (interactive)
   (minesweeper-init)
+  (minesweeper-goto-start-position))
+
+(defun minesweeper-restart ()
+  (interactive)
+  (setq *minesweeper-board-state* (make-vector (minesweeper-board-size) *minesweeper-cell-hidden-symbol*))
+  (setq *minesweeper-game-state* *minesweeper-game-active*)
+  (minesweeper-print-board)
   (minesweeper-goto-start-position))
 
 (defun minesweeper-board-size ()
