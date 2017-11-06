@@ -31,6 +31,8 @@
 
 ;;; Code:
 
+(require 'dash) ; For `-filter'
+
 (defgroup minesweeper-mode nil
   "Minesweeper settings."
   :group 'convenience
